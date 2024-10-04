@@ -1,3 +1,6 @@
+import { Socket } from "socket.io";
+import { Response } from 'express'; // Added import for Response type
+
 require('dotenv').config();
 const express = require('express');
 const http = require('http');
@@ -23,15 +26,16 @@ app.get('/', (req: Request, res: Response) => {
   res.send('Socket.IO server is running!');
 });
 
-io.on('connection', (socket) => {
+io.on('connection', (socket: Socket) => {
 
-  let roomId: string;
+  let roomId: string | undefined;
 
   socket.emit('connectedUsers', Object.keys(users).length)
 
   socket.on('joinRoom', (username: string, interests: string[]) => {
     users[socket.id] = { username, interests };
     roomId = findOrCreateRoom(rooms, socket.id);
+    if (!roomId) return
     socket.join(roomId);
 
     const usersInRoom = rooms[roomId].map(id => users[id]);
@@ -48,6 +52,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
       io.to(roomId).emit('userDisconnected', users[socket.id].username)
+      if (!roomId) return
       rooms[roomId] = rooms[roomId]?.filter(id => id !== socket.id);
       if (rooms[roomId].length === 0) {
         delete rooms[roomId];

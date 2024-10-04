@@ -1,37 +1,58 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
-const express_1 = __importDefault(require("express"));
-const http_1 = __importDefault(require("http"));
-const socket_io_1 = require("socket.io");
-const app = (0, express_1.default)();
-const server = http_1.default.createServer(app);
-const io = new socket_io_1.Server(server, {
+require('dotenv').config();
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const { findOrCreateRoom } = require('./utils/findOrCreateRoom');
+const cors = require('cors');
+const app = express();
+app.use(cors());
+const server = http.createServer(app);
+const PORT = process.env.PORT || 3000;
+const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173", // URL du client Vite
+        origin: process.env.CORS_ORIGIN,
         methods: ["GET", "POST"]
     }
 });
+const rooms = {};
+const users = {};
 app.get('/', (req, res) => {
     res.send('Socket.IO server is running!');
 });
-// Gérer les connexions Socket.IO
 io.on('connection', (socket) => {
-    console.log('Un utilisateur est connecté', socket.id);
-    // Recevoir et émettre des messages
-    socket.on('message', (message) => {
-        console.log('Message reçu : ', message);
-        io.emit('message', message); // Réémet à tous les clients connectés
-    });
-    // Gérer la déconnexion
-    socket.on('disconnect', () => {
-        console.log('Un utilisateur s\'est déconnecté');
+    let roomId;
+    socket.emit('connectedUsers', Object.keys(users).length);
+    socket.on('joinRoom', (username, interests) => {
+        users[socket.id] = { username, interests };
+        roomId = findOrCreateRoom(rooms, socket.id);
+        if (!roomId)
+            return;
+        socket.join(roomId);
+        const usersInRoom = rooms[roomId].map(id => users[id]);
+        io.to(roomId).emit('userJoined', usersInRoom);
+        socket.on('typing', (senderId, isTyping) => {
+            io.to(roomId).emit('typing', senderId, isTyping);
+        });
+        socket.on('sendMessage', (message, senderId) => {
+            io.to(roomId).emit('receiveMessage', message, senderId);
+        });
+        socket.on('disconnect', () => {
+            var _a;
+            io.to(roomId).emit('userDisconnected', users[socket.id].username);
+            if (!roomId)
+                return;
+            rooms[roomId] = (_a = rooms[roomId]) === null || _a === void 0 ? void 0 : _a.filter(id => id !== socket.id);
+            if (rooms[roomId].length === 0) {
+                delete rooms[roomId];
+            }
+            else {
+                socket.to(roomId).emit('message', `Utilisateur ${socket.id} a quitté le salon.`);
+            }
+        });
     });
 });
-// Démarrer le serveur
-const PORT = 3000;
 server.listen(PORT, () => {
     console.log(`Serveur Socket.IO en écoute sur le port ${PORT}`);
 });

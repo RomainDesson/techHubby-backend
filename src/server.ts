@@ -1,13 +1,17 @@
+require('dotenv').config();
 import express, { Request, Response } from 'express';
 import http from 'http';
 import { Server } from 'socket.io';
 import { findOrCreateRoom } from './utils/findOrCreateRoom';
+const cors = require('cors');
 
 const app = express();
+app.use(cors());
 const server = http.createServer(app);
+const PORT = process.env.PORT || 3000;  
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    origin: process.env.CORS_ORIGIN,
     methods: ["GET", "POST"]
   }
 });
@@ -56,7 +60,6 @@ io.on('connection', (socket) => {
   
 });
 
-const PORT = 3000;
 server.listen(PORT, () => {
   console.log(`Serveur Socket.IO en écoute sur le port ${PORT}`);
 });

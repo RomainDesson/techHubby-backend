@@ -1,8 +1,8 @@
 require('dotenv').config();
-import express, { Request, Response } from 'express';
-import http from 'http';
-import { Server } from 'socket.io';
-import { findOrCreateRoom } from './utils/findOrCreateRoom';
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const { findOrCreateRoom } = require('./utils/findOrCreateRoom');
 const cors = require('cors');
 
 const app = express();
